@@ -1,0 +1,569 @@
+<!-- 06 ------------------------------------------------------------------ -->
+<section class="slide divider">
+  <div class="top">
+    <span class="kicker">Bagian 01 <span style="color:#5f7288;">— dasar</span></span>
+    <span class="top-rule" style="background:#2b3644;"></span>
+    <span class="page">06</span>
+  </div>
+
+  <div class="mid">
+    <div class="accent-line"></div>
+    <h2>Konsep HTTP<br>&amp; format data</h2>
+    <p class="sub">
+      Bahasa yang dipahami semua sistem: method, URL, header, body,
+      status code, dan JSON.
+    </p>
+    <div class="chapters">
+      <span>Anatomi request</span>
+      <span>REST &amp; status code</span>
+      <span>Kontrak JSON</span>
+    </div>
+  </div>
+
+  <div class="ghost">01</div>
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>06 / 39</span></div>
+</section>
+
+<!-- 07 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">HTTP <span class="dim">/ satu percakapan utuh</span></span>
+    <span class="top-rule"></span>
+    <span class="page">07</span>
+  </div>
+
+  <h2 class="title tight">Request dan response punya bentuk yang bisa dibaca.</h2>
+
+  <div class="split" style="margin-top: 20px; gap: 22px;">
+    <div class="codeblock">
+      <div class="bar"><span class="file">REQUEST — client ke server</span><span class="lang">HTTP</span></div>
+      <pre data-lang="http" class="sm">POST /api/v1/surat HTTP/1.1
+Host: localhost:3000
+Accept: application/json
+Content-Type: application/json
+X-API-Key: rahasia-demo
+
+{
+  "nama": "Rina Wulandari",
+  "nim": "2201005",
+  "jenis": "Surat Izin Penelitian",
+  "keperluan": "Penelitian tugas akhir di desa."
+}</pre>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">RESPONSE — server ke client</span><span class="lang">HTTP</span></div>
+      <pre data-lang="http" class="sm">HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /api/v1/surat/5
+
+{
+  "data": {
+    "id": 5,
+    "nomor": "SRT/0005/2026",
+    "status": "diajukan",
+    "status_label": "Diajukan"
+  }
+}</pre>
+    </div>
+  </div>
+
+  <div class="split-3" style="margin-top: 24px; grid-template-columns: repeat(4, 1fr); gap: 18px;">
+    <div class="card flat">
+      <div class="num">METHOD + URL</div>
+      <p style="color:var(--ink-2);">Apa yang diminta. <span class="mono">POST /surat</span> = buat surat baru.</p>
+    </div>
+    <div class="card flat">
+      <div class="num">HEADER</div>
+      <p style="color:var(--ink-2);">Format data, kunci akses, lokasi data baru.</p>
+    </div>
+    <div class="card flat">
+      <div class="num">BODY</div>
+      <p style="color:var(--ink-2);">Datanya. Hanya pada POST, PUT, PATCH.</p>
+    </div>
+    <div class="card flat">
+      <div class="num">STATUS</div>
+      <p style="color:var(--ink-2);">Hasilnya: berhasil, gagal validasi, atau tidak berhak.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>07 / 39</span></div>
+</section>
+
+<!-- 08 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">REST <span class="dim">/ URL kata benda, method kata kerja</span></span>
+    <span class="top-rule"></span>
+    <span class="page">08</span>
+  </div>
+
+  <h2 class="title tight">Satu sumber daya, lima operasi standar.</h2>
+
+  <div class="split wide-left" style="margin-top: 22px; gap: 30px;">
+    <div>
+      <table class="tbl">
+        <thead>
+          <tr><th>Method</th><th>Endpoint</th><th>Arti</th><th style="text-align:right;">Sukses</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="m">GET</td>
+            <td class="mono">/api/v1/surat?status=diajukan&amp;page=2</td>
+            <td>Daftar surat, filter + halaman</td>
+            <td class="c st">200</td>
+          </tr>
+          <tr>
+            <td class="m">GET</td>
+            <td class="mono">/api/v1/surat/4</td>
+            <td>Detail satu surat</td>
+            <td class="c st">200</td>
+          </tr>
+          <tr>
+            <td class="m">POST</td>
+            <td class="mono">/api/v1/surat</td>
+            <td>Ajukan surat baru</td>
+            <td class="c st">201</td>
+          </tr>
+          <tr>
+            <td class="m">PATCH</td>
+            <td class="mono">/api/v1/surat/4/status</td>
+            <td>Ubah status saja</td>
+            <td class="c st">200</td>
+          </tr>
+          <tr>
+            <td class="m">DELETE</td>
+            <td class="mono">/api/v1/surat/4</td>
+            <td>Hapus surat</td>
+            <td class="c st">204</td>
+          </tr>
+          <tr>
+            <td class="m">GET</td>
+            <td class="mono">/api/v1/jenis-surat</td>
+            <td>Pilihan dropdown</td>
+            <td class="c st">200</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stack gap-14">
+      <div class="note warn">
+        <div class="label">Hindari gaya RPC</div>
+        <p>
+          <span class="mono">POST /api.php?action=hapus&amp;id=4</span> menyembunyikan
+          operasi di dalam body. URL-nya tidak bisa ditebak tanpa membaca dokumentasi.
+        </p>
+      </div>
+      <div class="note">
+        <div class="label">Versi di URL</div>
+        <p>
+          <span class="mono">/v1</span> memberi ruang untuk perubahan besar tanpa
+          mematahkan client lama. Perubahan kecil yang kompatibel tidak perlu versi baru.
+        </p>
+      </div>
+      <div class="card tint">
+        <div class="num">KONSISTENSI</div>
+        <p style="color:#33415f;">
+          Semua daftar memakai paginasi, semua detail memakai amplop
+          <span class="mono">data</span>, semua error memakai
+          <span class="mono">message</span> + <span class="mono">errors</span>.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="rule" style="margin-top: 30px;"></div>
+
+  <div class="split" style="margin-top: 16px; gap: 44px;">
+    <div>
+      <div class="kicker">Kata benda</div>
+      <p class="small" style="margin-top: 6px;">Resource selalu jamak: <span class="mono">/surat</span>, <span class="mono">/mahasiswa</span>. Bukan <span class="mono">/getSurat</span>.</p>
+    </div>
+    <div>
+      <div class="kicker">Kata kerja</div>
+      <p class="small" style="margin-top: 6px;">Method menentukan aksi. Satu URL yang sama melayani baca, ubah, dan hapus.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>08 / 39</span></div>
+</section>
+
+<!-- 09 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Status code <span class="dim">/ hasil yang bisa dibaca mesin</span></span>
+    <span class="top-rule"></span>
+    <span class="page">09</span>
+  </div>
+
+  <h2 class="title tight">Status code memberi tahu hasilnya sebelum body dibaca.</h2>
+
+  <div class="split" style="margin-top: 20px; gap: 34px;">
+    <div>
+      <div class="kicker" style="color: var(--green); margin-bottom: 8px;">Berhasil</div>
+      <table class="tbl">
+        <tbody>
+          <tr><td class="mono" style="color:var(--green);">200</td><td><strong>OK</strong> — ada data yang dikembalikan</td></tr>
+          <tr><td class="mono" style="color:var(--green);">201</td><td><strong>Created</strong> — POST berhasil, ada <span class="mono">Location</span></td></tr>
+          <tr><td class="mono" style="color:var(--green);">202</td><td><strong>Accepted</strong> — diterima, diproses belakangan</td></tr>
+          <tr><td class="mono" style="color:var(--green);">204</td><td><strong>No Content</strong> — DELETE berhasil, tanpa body</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <div class="kicker" style="color: var(--signal); margin-bottom: 8px;">Gagal</div>
+      <table class="tbl">
+        <tbody>
+          <tr><td class="mono" style="color:var(--signal);">400</td><td><strong>Bad Request</strong> — body bukan JSON valid</td></tr>
+          <tr><td class="mono" style="color:var(--signal);">401</td><td><strong>Unauthorized</strong> — kunci tidak ada atau salah</td></tr>
+          <tr><td class="mono" style="color:var(--signal);">403</td><td><strong>Forbidden</strong> — dikenali, tetapi tidak berhak</td></tr>
+          <tr><td class="mono" style="color:var(--signal);">404</td><td><strong>Not Found</strong> — data atau endpoint tidak ada</td></tr>
+          <tr><td class="mono" style="color:var(--signal);">422</td><td><strong>Unprocessable</strong> — validasi gagal</td></tr>
+          <tr><td class="mono" style="color:var(--signal);">500</td><td><strong>Server Error</strong> — bug di server, bukan salah client</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note warn" style="margin-top: 26px;">
+    <div class="label">Aturan emas</div>
+    <p>
+      Jangan membalas error dengan <span class="mono">200 + {"ok": false}</span>.
+      <span class="mono">fetch</span>, Postman, dan monitoring membaca status code.
+      Kalau semuanya 200, kegagalan tidak terlihat sampai seseorang membuka body.
+    </p>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>09 / 39</span></div>
+</section>
+
+<!-- 10 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Format <span class="dim">/ JSON, XML, form</span></span>
+    <span class="top-rule"></span>
+    <span class="page">10</span>
+  </div>
+
+  <h2 class="title tight">JSON menang karena punya tipe data dan dibaca native oleh JavaScript.</h2>
+
+  <div class="split-3" style="margin-top: 20px; gap: 16px;">
+    <div class="codeblock">
+      <div class="bar"><span class="file">application/json</span><span class="lang">JSON</span></div>
+      <pre data-lang="json" class="sm">{
+  "id": 4,
+  "nama": "Dewi Lestari",
+  "aktif": true,
+  "ipk": 3.75,
+  "dosen_wali": null,
+  "hobi": ["coding", "musik"]
+}</pre>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">application/xml</span><span class="lang">XML</span></div>
+      <pre data-lang="text" class="sm">&lt;mahasiswa&gt;
+  &lt;id&gt;4&lt;/id&gt;
+  &lt;nama&gt;Dewi Lestari&lt;/nama&gt;
+  &lt;aktif&gt;true&lt;/aktif&gt;
+  &lt;ipk&gt;3.75&lt;/ipk&gt;
+  &lt;dosen_wali/&gt;
+  &lt;hobi&gt;coding&lt;/hobi&gt;
+  &lt;hobi&gt;musik&lt;/hobi&gt;
+&lt;/mahasiswa&gt;</pre>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">x-www-form-urlencoded</span><span class="lang">FORM</span></div>
+      <pre data-lang="text" class="sm">id=4
+&amp;nama=Dewi+Lestari
+&amp;aktif=1
+&amp;ipk=3.75
+&amp;hobi[]=coding
+&amp;hobi[]=musik
+
+# semua nilai jadi teks
+# tidak ada boolean / null</pre>
+    </div>
+  </div>
+
+  <div class="split" style="margin-top: 22px; gap: 34px;">
+    <ul class="clean tight">
+      <li><strong>JSON</strong> ringkas, bertipe, dan langsung menjadi objek di browser.</li>
+      <li><strong>XML</strong> masih dipakai sistem lama, pemerintahan, dan perbankan (SOAP).</li>
+    </ul>
+    <ul class="clean tight">
+      <li><strong>Form</strong> untuk form HTML biasa dan unggah berkas (<span class="mono">multipart/form-data</span>).</li>
+      <li><span class="mono">Content-Type</span> = format yang dikirim. <span class="mono">Accept</span> = format yang diminta.</li>
+    </ul>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>10 / 39</span></div>
+</section>
+
+<!-- 11 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Kontrak data <span class="dim">/ delapan aturan</span></span>
+    <span class="top-rule"></span>
+    <span class="page">11</span>
+  </div>
+
+  <h2 class="title tight">Format yang konsisten lebih penting daripada format yang canggih.</h2>
+
+  <div class="split" style="margin-top: 24px; gap: 44px;">
+    <div class="stack gap-14">
+      <div style="display:flex; gap:14px;">
+        <span class="mono" style="color:var(--cobalt); font-size:11px; padding-top:3px;">01</span>
+        <p class="body" style="font-size:15px;"><strong>snake_case</strong> dan konsisten: <span class="mono">status_label</span>, <span class="mono">dibuat_pada</span>, bukan campuran gaya.</p>
+      </div>
+      <div style="display:flex; gap:14px;">
+        <span class="mono" style="color:var(--cobalt); font-size:11px; padding-top:3px;">02</span>
+        <p class="body" style="font-size:15px;"><strong>ISO 8601 dengan zona waktu</strong>: <span class="mono">2026-09-20T15:45:00+07:00</span>. Frontend yang memformat tampilan.</p>
+      </div>
+      <div style="display:flex; gap:14px;">
+        <span class="mono" style="color:var(--cobalt); font-size:11px; padding-top:3px;">03</span>
+        <p class="body" style="font-size:15px;"><strong>Status sebagai kode string</strong>: <span class="mono">"diajukan"</span>. Label tampilan dikirim terpisah.</p>
+      </div>
+      <div style="display:flex; gap:14px;">
+        <span class="mono" style="color:var(--cobalt); font-size:11px; padding-top:3px;">04</span>
+        <p class="body" style="font-size:15px;"><strong>NIM dan nomor HP berupa string</strong>, bukan number. Bisa diawali nol dan tidak untuk dihitung.</p>
+      </div>
+    </div>
+
+    <div class="stack gap-14">
+      <div style="display:flex; gap:14px;">
+        <span class="mono" style="color:var(--cobalt); font-size:11px; padding-top:3px;">05</span>
+        <p class="body" style="font-size:15px;"><strong>Kosong berarti <span class="mono">null</span></strong>, bukan string kosong atau field yang hilang tanpa alasan.</p>
+      </div>
+      <div style="display:flex; gap:14px;">
+        <span class="mono" style="color:var(--cobalt); font-size:11px; padding-top:3px;">06</span>
+        <p class="body" style="font-size:15px;"><strong>Bungkus dengan <span class="mono">data</span></strong>. Info tambahan di <span class="mono">meta</span> dan <span class="mono">links</span>.</p>
+      </div>
+      <div style="display:flex; gap:14px;">
+        <span class="mono" style="color:var(--cobalt); font-size:11px; padding-top:3px;">07</span>
+        <p class="body" style="font-size:15px;"><strong>Jangan kirim kolom rahasia</strong> atau data berlebih. Password, token, dan catatan internal tidak pernah masuk respons.</p>
+      </div>
+      <div style="display:flex; gap:14px;">
+        <span class="mono" style="color:var(--cobalt); font-size:11px; padding-top:3px;">08</span>
+        <p class="body" style="font-size:15px;"><strong>Server boleh mengirim petunjuk UI</strong>, seperti <span class="mono">aksi_berikutnya</span>, agar aturan bisnis tidak diduplikasi di frontend.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top: 28px;">
+    <div class="label">Konsekuensinya</div>
+    <p>Frontend cukup menulis satu lapisan API. Setiap backend baru mengikuti kontrak yang sama, tidak ada kode UI yang berubah.</p>
+  </div>
+
+  <div class="split" style="margin-top: 22px; gap: 14px;">
+    <div class="codeblock">
+      <div class="bar"><span class="file">tidak konsisten</span><span class="lang">JSON</span></div>
+      <pre data-lang="json" class="sm">{
+  "statusLabel": "Diajukan",
+  "createdAt": "2026-09-20T15:45:00+07:00",
+  "NIM": 2201004
+}</pre>
+    </div>
+    <div class="codeblock">
+      <div class="bar"><span class="file">konsisten</span><span class="lang">JSON</span></div>
+      <pre data-lang="json" class="sm">{
+  "status_label": "Diajukan",
+  "dibuat_pada": "2026-09-20T15:45:00+07:00",
+  "nim": "2201004"
+}</pre>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>11 / 39</span></div>
+</section>
+
+<!-- 12 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Contoh <span class="dim">/ detail satu sumber daya</span></span>
+    <span class="top-rule"></span>
+    <span class="page">12</span>
+  </div>
+
+  <h2 class="title tight">Respons detail membawa data, label, aksi, dan riwayat.</h2>
+
+  <div class="split wide-right" style="margin-top: 18px; gap: 26px;">
+    <div class="stack gap-14">
+      <div class="card">
+        <div class="num">data</div>
+        <p style="color:var(--ink-2);">Objek utama. Semua field yang dibutuhkan layar detail.</p>
+      </div>
+      <div class="card">
+        <div class="num">status + status_label</div>
+        <p style="color:var(--ink-2);">Kode untuk logika, label untuk tampilan. Frontend tidak menyimpan kamus status.</p>
+      </div>
+      <div class="card">
+        <div class="num">aksi_berikutnya</div>
+        <p style="color:var(--ink-2);">Tombol yang boleh muncul. Aturan transisi status tetap di server.</p>
+      </div>
+      <div class="card">
+        <div class="num">riwayat</div>
+        <p style="color:var(--ink-2);">Jejak perubahan: status, waktu, catatan. Hanya di detail, tidak di daftar.</p>
+      </div>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">GET /api/v1/surat/4 → 200</span><span class="lang">JSON</span></div>
+      <pre data-lang="json" class="sm">{
+  "data": {
+    "id": 4,
+    "nomor": "SRT/0004/2026",
+    "nama": "Dewi Lestari",
+    "nim": "2201004",
+    "jenis": "Surat Rekomendasi Beasiswa",
+    "keperluan": "Pendaftaran beasiswa...",
+    "status": "diajukan",
+    "status_label": "Diajukan",
+    "aksi_berikutnya": [
+      { "status": "diproses", "label": "Proses" },
+      { "status": "ditolak",  "label": "Tolak" }
+    ],
+    "riwayat": [
+      {
+        "status": "diajukan",
+        "waktu": "2026-09-20T15:45:00+07:00",
+        "catatan": "Pengajuan dibuat."
+      }
+    ],
+    "dibuat_pada": "2026-09-20T15:45:00+07:00"
+  }
+}</pre>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>12 / 39</span></div>
+</section>
+
+<!-- 13 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Daftar <span class="dim">/ paginasi</span></span>
+    <span class="top-rule"></span>
+    <span class="page">13</span>
+  </div>
+
+  <h2 class="title tight">Daftar tidak pernah dikirim seluruhnya.</h2>
+
+  <div class="split wide-right" style="margin-top: 18px; gap: 26px;">
+    <div class="stack gap-14">
+      <div>
+        <h3 class="sub">Kenapa dibatasi</h3>
+        <p class="body" style="margin-top: 6px; font-size: 15px;">
+          Sepuluh ribu surat berarti sepuluh ribu objek di memori server,
+          di jaringan, dan di browser. Satu permintaan yang lambat terasa
+          seperti aplikasi rusak.
+        </p>
+      </div>
+      <div class="note">
+        <div class="label">Ikuti links.next</div>
+        <p>Jangan menebak jumlah halaman. Client membaca <span class="mono">links.next</span> sampai <span class="mono">null</span>.</p>
+      </div>
+      <div class="note warn">
+        <div class="label">Batasi per_page</div>
+        <p>Maksimum 50. Tanpa batas, satu permintaan bisa meminta seluruh isi penyimpanan.</p>
+      </div>
+      <div class="card tint">
+        <div class="num">META</div>
+        <p style="color:#33415f;">Memuat <span class="mono">current_page</span>, <span class="mono">last_page</span>, <span class="mono">per_page</span>, dan <span class="mono">total</span>.</p>
+      </div>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">GET /api/v1/surat?per_page=2 → 200</span><span class="lang">JSON</span></div>
+      <pre data-lang="json" class="sm">{
+  "data": [
+    { "id": 4, "nama": "Dewi Lestari", "status": "diajukan" },
+    { "id": 3, "nama": "Budi Santoso",  "status": "diproses" }
+  ],
+  "links": {
+    "first": ".../surat?per_page=2&amp;page=1",
+    "last":  ".../surat?per_page=2&amp;page=2",
+    "prev":  null,
+    "next":  ".../surat?per_page=2&amp;page=2"
+  },
+  "meta": {
+    "current_page": 1,
+    "last_page": 2,
+    "per_page": 2,
+    "total": 4,
+    "from": 1,
+    "to": 2
+  }
+}</pre>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>13 / 39</span></div>
+</section>
+
+<!-- 14 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Error <span class="dim">/ satu bentuk untuk semua kegagalan</span></span>
+    <span class="top-rule"></span>
+    <span class="page">14</span>
+  </div>
+
+  <h2 class="title tight">Error yang bentuknya tetap bisa ditangani sekali, untuk semua endpoint.</h2>
+
+  <div class="split-3" style="margin-top: 20px; gap: 14px;">
+    <div class="codeblock">
+      <div class="bar"><span class="file">422 · validasi gagal</span><span class="lang">JSON</span></div>
+      <pre data-lang="json" class="sm">{
+  "message": "Nama wajib diisi.
+    (dan 1 error lainnya)",
+  "errors": {
+    "nama": ["Nama wajib diisi."],
+    "nim": ["NIM harus berupa
+      angka (5-15 digit)."]
+  }
+}</pre>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">404 · tidak ditemukan</span><span class="lang">JSON</span></div>
+      <pre data-lang="json" class="sm">{
+  "message": "Data tidak ditemukan."
+}</pre>
+      <div style="height: 1px; background:#22303f; margin: 0 15px;"></div>
+      <pre data-lang="json" class="sm">{
+  "message": "API key tidak valid."
+}</pre>
+      <div style="padding: 6px 15px 12px;">
+        <div class="xs" style="color:#7f8c9c; font-family: var(--mono);">↑ 401 · kunci tidak ada / salah</div>
+      </div>
+    </div>
+
+    <div class="stack gap-12">
+      <div class="note warn">
+        <div class="label">400 · body rusak</div>
+        <p style="font-size:13px;"><span class="mono">{"message": "Body request bukan JSON yang valid."}</span></p>
+      </div>
+      <div class="note">
+        <div class="label">Kunci errors = nama field</div>
+        <p style="font-size:13px;">Frontend menempelkan pesan tepat di bawah input yang salah tanpa kode khusus per field.</p>
+      </div>
+      <div class="note">
+        <div class="label">Detail 500 hanya di log</div>
+        <p style="font-size:13px;">Client menerima pesan umum. Stack trace tidak pernah dikirim ke luar.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="rule" style="margin-top: 24px;"></div>
+
+  <div class="split" style="margin-top: 16px; gap: 34px;">
+    <p class="small"><strong style="color:var(--ink);">Laravel:</strong> format ini sudah bawaan. <span class="mono">ValidationException</span> menghasilkan 422 dengan <span class="mono">errors</span> per field.</p>
+    <p class="small"><strong style="color:var(--ink);">Node.js:</strong> bentuk yang sama dibuat manual di <span class="mono">errorHandler</span>, supaya frontend tidak peduli backend-nya.</p>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>14 / 39</span></div>
+</section>

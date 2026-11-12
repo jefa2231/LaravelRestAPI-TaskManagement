@@ -1,0 +1,448 @@
+<!-- 23 ------------------------------------------------------------------ -->
+<section class="slide divider">
+  <div class="top">
+    <span class="kicker">Bagian 03 <span style="color:#5f7288;">— backend kedua</span></span>
+    <span class="top-rule" style="background:#2b3644;"></span>
+    <span class="page">23</span>
+  </div>
+
+  <div class="mid">
+    <div class="accent-line"></div>
+    <h2>REST API<br>dengan Node.js</h2>
+    <p class="sub">
+      Kontrak yang sama, bahasa yang berbeda. Yang dirakit sendiri di Express
+      adalah hal-hal yang di Laravel sudah tersedia.
+    </p>
+    <div class="chapters">
+      <span>Struktur &amp; app.js</span>
+      <span>Route &amp; validasi</span>
+      <span>Resource &amp; error</span>
+    </div>
+  </div>
+
+  <div class="ghost">03</div>
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>23 / 39</span></div>
+</section>
+
+<!-- 24 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Struktur <span class="dim">/ padanan Laravel</span></span>
+    <span class="top-rule"></span>
+    <span class="page">24</span>
+  </div>
+
+  <h2 class="title tight">Setiap file Node punya pasangan konsepnya di Laravel.</h2>
+
+  <div class="split" style="margin-top: 16px; gap: 22px;">
+    <div class="codeblock">
+      <div class="bar"><span class="file">integrasi-api/nodejs</span><span class="lang">TREE</span></div>
+      <pre data-lang="text" class="sm">src/
+  server.js            # app.listen(3000)
+  app.js               # middleware + route
+  routes/surat.js      # ~ Controller
+  validate.js          # ~ FormRequest
+  resource.js          # ~ API Resource
+  errors.js            # HttpError, 422
+  store.js             # ~ Model (array memori)
+  status.js            # ~ enum StatusSurat
+  middleware/
+    apiKey.js          # ~ Middleware ApiKey
+    errorHandler.js    # ~ withExceptions
+integrasi/
+  tarik-dari-laravel.js  # HTTP client</pre>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">src/app.js</span><span class="lang">JS</span></div>
+      <pre data-lang="js" class="sm">const app = express();
+
+app.use(cors());          // izinkan origin lain
+app.use(express.json());  // body JSON -&gt; req.body
+
+app.get('/api/v1/jenis-surat', (req, res) =&gt;
+  res.json({ data: JENIS }));
+
+app.use('/api/v1/surat', suratRouter);
+
+app.post('/api/v1/webhook/status-surat',
+  apiKey, (req, res) =&gt; {
+    const { event, data } = req.body ?? {};
+    console.log('[NOTIFIKASI]', event, data);
+    res.status(202).json({ message: 'Diterima.' });
+  });
+
+// endpoint tidak ada -&gt; 404 JSON
+app.use((req, res, next) =&gt;
+  next(new HttpError(404, 'Endpoint tidak ditemukan.')));
+
+app.use(errorHandler);  // 4 parameter, paling akhir</pre>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top: 18px;">
+    <div class="label">Urutan middleware penting</div>
+    <p><span class="mono">express.json()</span> harus sebelum route yang membaca body. <span class="mono">errorHandler</span> harus paling akhir.</p>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>24 / 39</span></div>
+</section>
+
+<!-- 25 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Route &amp; validasi <span class="dim">/ controller versi Express</span></span>
+    <span class="top-rule"></span>
+    <span class="page">25</span>
+  </div>
+
+  <h2 class="title tight">Paginasi, validasi, dan 201 ditulis eksplisit.</h2>
+
+  <div class="split" style="margin-top: 12px; gap: 20px;">
+    <div class="stack gap-12">
+      <div class="codeblock">
+        <div class="bar"><span class="file">src/routes/surat.js</span><span class="lang">JS</span></div>
+        <pre data-lang="js" class="xxs">router.get('/', (req, res) =&gt; {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const perPage = Math.min(50,
+    Math.max(1, parseInt(req.query.per_page, 10) || 10));
+
+  const { items, total } = store.list({
+    status: req.query.status, q: req.query.q, page, perPage,
+  });
+
+  res.json(paginated(req, items,
+    { total, page, perPage }, suratResource));
+});
+
+router.post('/', apiKey, (req, res) =&gt; {
+  const errors = validasiSurat(req.body ?? {});
+  if (Object.keys(errors).length) {
+    throw validationError(errors);       // -&gt; 422
+  }
+
+  const surat = store.create(req.body);
+
+  res.status(201)
+     .location(`${req.baseUrl}/${surat.id}`)
+     .json({ data: suratResource(surat, { detail: true }) });
+});</pre>
+      </div>
+      <div class="note">
+        <div class="label">404 di route detail</div>
+        <p><span class="mono">router.param('id')</span> mencari data di store sekali, lalu memanggil <span class="mono">next(new HttpError(404))</span>. Semua handler di bawahnya menerima <span class="mono">req.surat</span> yang sudah pasti ada.</p>
+      </div>
+    </div>
+
+    <div class="stack gap-12">
+      <div class="codeblock">
+        <div class="bar"><span class="file">src/validate.js</span><span class="lang">JS</span></div>
+        <pre data-lang="js" class="sm">const POLA_NIM = /^\d{5,15}$/;
+
+export function validasiSurat(body) {
+  const errors = {};
+
+  if (!body.nama || String(body.nama).trim() === '') {
+    errors.nama = ['Nama wajib diisi.'];
+  } else if (String(body.nama).length &gt; 100) {
+    errors.nama = ['Nama maksimal 100 karakter.'];
+  }
+
+  if (!POLA_NIM.test(String(body.nim ?? ''))) {
+    errors.nim = ['NIM harus berupa angka (5-15 digit).'];
+  }
+
+  if (!JENIS.includes(body.jenis)) {
+    errors.jenis = ['Pilih jenis surat.'];
+  }
+
+  if (String(body.keperluan ?? '').trim().length &lt; 10) {
+    errors.keperluan = ['Keperluan minimal 10 karakter.'];
+  }
+
+  return errors;
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>25 / 39</span></div>
+</section>
+
+<!-- 26 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Resource &amp; error <span class="dim">/ dua file terakhir</span></span>
+    <span class="top-rule"></span>
+    <span class="page">26</span>
+  </div>
+
+  <h2 class="title tight">Bentuk respons ditentukan di satu tempat.</h2>
+
+  <div class="split" style="margin-top: 12px; gap: 20px;">
+    <div class="stack gap-12">
+      <div class="codeblock">
+        <div class="bar"><span class="file">src/resource.js</span><span class="lang">JS</span></div>
+        <pre data-lang="js" class="sm">export function suratResource(s, { detail = false } = {}) {
+  const status = STATUS[s.status];
+
+  return {
+    id: s.id,
+    nomor: s.nomor,
+    nama: s.nama,
+    nim: s.nim,
+    status: s.status,
+    status_label: status.label,
+    aksi_berikutnya: status.berikutnya.map((k) =&gt; ({
+      status: k,
+      label: STATUS[k].aksi,
+    })),
+    ...(detail &amp;&amp; { riwayat: s.riwayat ?? [] }),
+    dibuat_pada: s.dibuat_pada,
+  };
+}</pre>
+      </div>
+      <div class="note">
+        <div class="label">paginated()</div>
+        <p>Fungsi kedua merakit <span class="mono">data</span>, <span class="mono">links</span>, dan <span class="mono">meta</span> dari <span class="mono">{ total, page, perPage }</span>. Bentuknya persis seperti JSON di slide 13.</p>
+      </div>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">src/middleware/errorHandler.js</span><span class="lang">JS</span></div>
+      <pre data-lang="js" class="xxs">export function errorHandler(err, req, res, next) {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      message: 'Body request bukan JSON yang valid.',
+    });
+  }
+
+  if (err instanceof HttpError) {
+    return res.status(err.status).json({
+      message: err.message,
+      ...(err.errors &amp;&amp; { errors: err.errors }),
+    });
+  }
+
+  console.error(err);          // detail hanya di log
+  res.status(500).json({
+    message: 'Terjadi kesalahan di server.',
+  });
+}
+
+// errors.js
+export class HttpError extends Error {
+  constructor(status, message, errors = null) {
+    super(message);
+    this.status = status; this.errors = errors;
+  }
+}</pre>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>26 / 39</span></div>
+</section>
+
+<!-- 27 ------------------------------------------------------------------ -->
+<section class="slide divider">
+  <div class="top">
+    <span class="kicker">Bagian 04 <span style="color:#5f7288;">— server memanggil server</span></span>
+    <span class="top-rule" style="background:#2b3644;"></span>
+    <span class="page">27</span>
+  </div>
+
+  <div class="mid">
+    <div class="accent-line"></div>
+    <h2>Integrasi<br>antar sistem</h2>
+    <p class="sub">
+      Webhook untuk memberi tahu. HTTP client untuk menarik data.
+      Keduanya butuh timeout, status code, dan jalur gagal yang jelas.
+    </p>
+    <div class="chapters">
+      <span>Webhook</span>
+      <span>HTTP client</span>
+      <span>Keamanan &amp; CORS</span>
+    </div>
+  </div>
+
+  <div class="ghost">04</div>
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>27 / 39</span></div>
+</section>
+
+<!-- 28 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Webhook <span class="dim">/ Laravel memberi tahu Node</span></span>
+    <span class="top-rule"></span>
+    <span class="page">28</span>
+  </div>
+
+  <h2 class="title tight">Perubahan status dikirim keluar, tanpa menahan user.</h2>
+
+  <div class="split" style="margin-top: 14px; gap: 20px;">
+    <div class="codeblock">
+      <div class="bar"><span class="file">app/Services/NotifikasiService.php</span><span class="lang">PHP</span></div>
+      <pre data-lang="php" class="sm">public function statusBerubah(Surat $surat): void
+{
+    try {
+        Http::withHeaders([
+                'X-API-Key' =&gt; config('services.notifikasi.key'),
+            ])
+            -&gt;acceptJson()
+            -&gt;timeout(5)       // jangan tunggu lama
+            -&gt;retry(2, 200)    // coba ulang 2 kali
+            -&gt;post(config('services.notifikasi.url'), [
+                'event' =&gt; 'surat.status_berubah',
+                'data'  =&gt; ['nomor'  =&gt; $surat-&gt;nomor,
+                            'status' =&gt; $surat-&gt;status-&gt;value],
+                'terjadi_pada' =&gt; now()-&gt;toIso8601String(),
+            ])
+            -&gt;throw();
+    } catch (Throwable $e) {
+        // gagal kirim tidak membatalkan perubahan status
+        Log::warning('Webhook gagal: '.$e-&gt;getMessage());
+    }
+}</pre>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">nodejs/src/app.js</span><span class="lang">JS</span></div>
+      <pre data-lang="js" class="sm">app.post('/api/v1/webhook/status-surat', apiKey, (req, res) =&gt; {
+  const { event, data } = req.body ?? {};
+
+  console.log(
+    `[NOTIFIKASI] ${event}: ${data?.nomor}`
+    + ` -&gt; ${data?.status}`,
+  );
+
+  notifikasi.push({
+    event, data,
+    diterima_pada: new Date().toISOString(),
+  });
+
+  // 202: diterima, diproses belakangan
+  res.status(202).json({ message: 'Notifikasi diterima.' });
+});</pre>
+    </div>
+  </div>
+
+  <div class="split" style="margin-top: 18px; gap: 34px;">
+    <div class="note">
+      <div class="label">Prinsip</div>
+      <p>Kegagalan notifikasi tidak boleh menggagalkan proses utama. Status sudah tersimpan sebelum webhook dikirim.</p>
+    </div>
+    <div class="note warn">
+      <div class="label">Produksi</div>
+      <p>Kirim lewat queue dengan <span class="mono">dispatch()</span>. User tidak menunggu panggilan jaringan yang bisa lambat.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>28 / 39</span></div>
+</section>
+
+<!-- 29 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">HTTP client <span class="dim">/ Node menarik data Laravel</span></span>
+    <span class="top-rule"></span>
+    <span class="page">29</span>
+  </div>
+
+  <h2 class="title tight">Ikuti <span class="mono">links.next</span> sampai habis, jangan menebak halaman.</h2>
+
+  <div class="split wide-right" style="margin-top: 12px; gap: 24px;">
+    <div class="stack gap-14">
+      <div class="codeblock">
+        <div class="bar"><span class="file">output</span><span class="lang">TEXT</span></div>
+        <pre data-lang="text" class="sm">$ npm run tarik-laravel
+
+Sumber: http://localhost:8001/api/v1
+Total surat: 4
+
+  diajukan   1  (2201004)
+  diproses   1  (2201002)
+  selesai    1  (2201001)
+  ditolak    1  (2201003)</pre>
+      </div>
+      <div class="note warn">
+        <div class="label">Tiga hal wajib</div>
+        <p>Timeout, cek <span class="mono">res.ok</span>, dan berhenti saat <span class="mono">links.next</span> bernilai <span class="mono">null</span>.</p>
+      </div>
+    </div>
+
+    <div class="codeblock">
+      <div class="bar"><span class="file">nodejs/integrasi/tarik-dari-laravel.js</span><span class="lang">JS</span></div>
+      <pre data-lang="js" class="sm">const SUMBER = 'http://localhost:8001/api/v1';
+
+async function getJson(url) {
+  const res = await fetch(url, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(5000),
+  });
+  const body = await res.json().catch(() =&gt; null);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${body?.message ?? '-'}`);
+  }
+  return body;
+}
+
+async function ambilSemuaSurat() {
+  const semua = [];
+  let url = `${SUMBER}/surat?per_page=50`;
+
+  while (url) {
+    const { data, links } = await getJson(url);
+    semua.push(...data);
+    url = links.next;      // null = halaman terakhir
+  }
+  return semua;
+}</pre>
+    </div>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>29 / 39</span></div>
+</section>
+
+<!-- 30 ------------------------------------------------------------------ -->
+<section class="slide">
+  <div class="top">
+    <span class="kicker">Keamanan <span class="dim">/ kunci, batas, origin</span></span>
+    <span class="top-rule"></span>
+    <span class="page">30</span>
+  </div>
+
+  <h2 class="title tight">Empat kontrol yang membedakan demo dari produksi.</h2>
+
+  <div class="split" style="margin-top: 22px; gap: 18px;">
+    <div class="card">
+      <div class="num">01 · AUTENTIKASI</div>
+      <h3>Kunci berbeda untuk peran berbeda</h3>
+      <p><span class="mono">X-API-Key</span> untuk server ke server. <span class="mono">Authorization: Bearer</span> untuk aplikasi yang dipakai orang (Sanctum/JWT). Simpan di <span class="mono">.env</span>, jangan di Git.</p>
+    </div>
+    <div class="card">
+      <div class="num">02 · PEMBATASAN</div>
+      <h3>Rate limit 60 permintaan per menit</h3>
+      <p>Laravel: <span class="mono">throttle:60,1</span>. Express: <span class="mono">express-rate-limit</span>. Tanpa batas, satu skrip bisa menghabiskan kuota server.</p>
+    </div>
+  </div>
+
+  <div class="split" style="margin-top: 16px; gap: 18px;">
+    <div class="card">
+      <div class="num">03 · TRANSPORT</div>
+      <h3>HTTPS di produksi</h3>
+      <p>API key yang lewat HTTP biasa bisa dibaca di jaringan. Token demo tidak pernah dipakai untuk deployment publik.</p>
+    </div>
+    <div class="card">
+      <div class="num">04 · CORS</div>
+      <h3>Browser butuh izin, server tidak</h3>
+      <p>Express: <span class="mono">app.use(cors())</span>. Laravel: <span class="mono">config/cors.php</span>.</p>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top: 22px;">
+    <div class="label">CORS hanya berlaku di browser</div>
+    <p><span class="mono">curl</span>, <span class="mono">Http::</span>, dan <span class="mono">fetch</span> di Node tidak terkena CORS. Yang diblokir browser adalah JavaScript dari origin lain, bukan permintaan jaringannya.</p>
+  </div>
+
+  <div class="foot"><span>API · Integrasi &amp; Format Data</span><span>30 / 39</span></div>
+</section>
